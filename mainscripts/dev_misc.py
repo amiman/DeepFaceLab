@@ -69,7 +69,8 @@ def extract_vggface2_dataset(input_dir, device_args={} ):
             if min(w,h) < 128:
                 continue
 
-            data += [ ExtractSubprocessor.Data(filename=filename,rects=[ (l,t,l+w,t+h) ], landmarks_accurate=False, force_output_path=cur_output_path ) ]
+            data += [ ExtractSubprocessor.Data(filename=filename,rects=[ (l,t,l+w,t+h) ], landmarks_accurate=False,
+                                               force_output_path=cur_output_path ) ]
 
     face_type = FaceType.fromString('full_face')
 
