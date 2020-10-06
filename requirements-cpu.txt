@@ -1,4 +1,6 @@
+-e externals/common --install-option="--no-deps"
 tqdm
+prox_tv
 numpy==1.17.0
 h5py==2.9.0
 opencv-python==4.1.0.25

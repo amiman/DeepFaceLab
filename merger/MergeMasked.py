@@ -166,7 +166,7 @@ def MergeMaskedFace (predictor_func, predictor_input_shape,
 
                 if 'seamless' not in cfg.mode and cfg.color_transfer_mode != 0:
                     if cfg.color_transfer_mode == 1: #rct
-                        prd_face_bgr = imagelib.reinhard_color_transfer ( np.clip( prd_face_bgr*wrk_face_mask_area_a*255, 0, 255).astype(np.uint8),
+                        prd_face_bgr = imagelib.reinhard_color_transfer ( np.clip(prd_face_bgr*wrk_face_mask_area_a*255, 0, 255).astype(np.uint8),
                                                                           np.clip( dst_face_bgr*wrk_face_mask_area_a*255, 0, 255).astype(np.uint8), )
 
                         prd_face_bgr = np.clip( prd_face_bgr.astype(np.float32) / 255.0, 0.0, 1.0)
@@ -328,7 +328,9 @@ def MergeMasked (predictor_func,
 
     outs = []
     for face_num, img_landmarks in enumerate( frame_info.landmarks_list ):
-        out_img, out_img_merging_mask = MergeMaskedFace (predictor_func, predictor_input_shape, face_enhancer_func, xseg_256_extract_func, cfg, frame_info, img_bgr_uint8, img_bgr, img_landmarks)
+        out_img, out_img_merging_mask = MergeMaskedFace (predictor_func, predictor_input_shape, face_enhancer_func,
+                                                         xseg_256_extract_func, cfg, frame_info, img_bgr_uint8, img_bgr,
+                                                         img_landmarks)
         outs += [ (out_img, out_img_merging_mask) ]
 
     #Combining multiple face outputs

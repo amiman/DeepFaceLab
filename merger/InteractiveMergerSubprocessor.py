@@ -16,12 +16,13 @@ from merger import MergeFaceAvatar, MergeMasked, MergerConfig
 from .MergerScreen import Screen, ScreenManager
 
 MERGER_DEBUG = False
-class InteractiveMergerSubprocessor(Subprocessor):
 
+
+class InteractiveMergerSubprocessor(Subprocessor):
     class Frame(object):
         def __init__(self, prev_temporal_frame_infos=None,
-                           frame_info=None,
-                           next_temporal_frame_infos=None):
+                     frame_info=None,
+                     next_temporal_frame_infos=None):
             self.prev_temporal_frame_infos = prev_temporal_frame_infos
             self.frame_info = frame_info
             self.next_temporal_frame_infos = next_temporal_frame_infos
@@ -37,13 +38,13 @@ class InteractiveMergerSubprocessor(Subprocessor):
 
     class ProcessingFrame(object):
         def __init__(self, idx=None,
-                           cfg=None,
-                           prev_temporal_frame_infos=None,
-                           frame_info=None,
-                           next_temporal_frame_infos=None,
-                           output_filepath=None,
-                           output_mask_filepath=None,
-                           need_return_image = False):
+                     cfg=None,
+                     prev_temporal_frame_infos=None,
+                     frame_info=None,
+                     next_temporal_frame_infos=None,
+                     output_filepath=None,
+                     output_mask_filepath=None,
+                     need_return_image=False):
             self.idx = idx
             self.cfg = cfg
             self.prev_temporal_frame_infos = prev_temporal_frame_infos
@@ -58,91 +59,89 @@ class InteractiveMergerSubprocessor(Subprocessor):
 
     class Cli(Subprocessor.Cli):
 
-        #override
+        # override
         def on_initialize(self, client_dict):
-            self.log_info ('Running on %s.' % (client_dict['device_name']) )
-            self.device_idx  = client_dict['device_idx']
+            self.log_info('Running on %s.' % (client_dict['device_name']))
+            self.device_idx = client_dict['device_idx']
             self.device_name = client_dict['device_name']
             self.predictor_func = client_dict['predictor_func']
             self.predictor_input_shape = client_dict['predictor_input_shape']
             self.face_enhancer_func = client_dict['face_enhancer_func']
             self.xseg_256_extract_func = client_dict['xseg_256_extract_func']
 
-
-            #transfer and set stdin in order to work code.interact in debug subprocess
-            stdin_fd         = client_dict['stdin_fd']
+            # transfer and set stdin in order to work code.interact in debug subprocess
+            stdin_fd = client_dict['stdin_fd']
             if stdin_fd is not None:
                 sys.stdin = os.fdopen(stdin_fd)
 
             return None
 
-        #override
-        def process_data(self, pf): #pf=ProcessingFrame
+        # override
+        def process_data(self, pf):  # pf=ProcessingFrame
             cfg = pf.cfg.copy()
 
             frame_info = pf.frame_info
             filepath = frame_info.filepath
 
             if len(frame_info.landmarks_list) == 0:
-                
-                if cfg.mode == 'raw-predict':        
-                    h,w,c = self.predictor_input_shape
-                    img_bgr = np.zeros( (h,w,3), dtype=np.uint8)
-                    img_mask = np.zeros( (h,w,1), dtype=np.uint8)               
-                else:                
-                    self.log_info (f'no faces found for {filepath.name}, copying without faces')
+
+                if cfg.mode == 'raw-predict':
+                    h, w, c = self.predictor_input_shape
+                    img_bgr = np.zeros((h, w, 3), dtype=np.uint8)
+                    img_mask = np.zeros((h, w, 1), dtype=np.uint8)
+                else:
+                    self.log_info(f'no faces found for {filepath.name}, copying without faces')
                     img_bgr = cv2_imread(filepath)
-                    imagelib.normalize_channels(img_bgr, 3)                    
-                    h,w,c = img_bgr.shape
-                    img_mask = np.zeros( (h,w,1), dtype=img_bgr.dtype)
-                    
-                cv2_imwrite (pf.output_filepath, img_bgr)
-                cv2_imwrite (pf.output_mask_filepath, img_mask)
+                    imagelib.normalize_channels(img_bgr, 3)
+                    h, w, c = img_bgr.shape
+                    img_mask = np.zeros((h, w, 1), dtype=img_bgr.dtype)
+
+                cv2_imwrite(pf.output_filepath, img_bgr)
+                cv2_imwrite(pf.output_mask_filepath, img_mask)
 
                 if pf.need_return_image:
-                    pf.image = np.concatenate ([img_bgr, img_mask], axis=-1)
+                    pf.image = np.concatenate([img_bgr, img_mask], axis=-1)
 
             else:
                 if cfg.type == MergerConfig.TYPE_MASKED:
                     try:
-                        final_img = MergeMasked (self.predictor_func, self.predictor_input_shape,
-                                                 face_enhancer_func=self.face_enhancer_func,
-                                                 xseg_256_extract_func=self.xseg_256_extract_func,
-                                                 cfg=cfg,
-                                                 frame_info=frame_info)
+                        final_img = MergeMasked(self.predictor_func, self.predictor_input_shape,
+                                                face_enhancer_func=self.face_enhancer_func,
+                                                xseg_256_extract_func=self.xseg_256_extract_func,
+                                                cfg=cfg,
+                                                frame_info=frame_info)
                     except Exception as e:
                         e_str = traceback.format_exc()
                         if 'MemoryError' in e_str:
                             raise Subprocessor.SilenceException
                         else:
-                            raise Exception( f'Error while merging file [{filepath}]: {e_str}' )
+                            raise Exception(f'Error while merging file [{filepath}]: {e_str}')
 
                 elif cfg.type == MergerConfig.TYPE_FACE_AVATAR:
-                    final_img = MergeFaceAvatar (self.predictor_func, self.predictor_input_shape,
-                                                   cfg, pf.prev_temporal_frame_infos,
-                                                        pf.frame_info,
-                                                        pf.next_temporal_frame_infos )
+                    final_img = MergeFaceAvatar(self.predictor_func, self.predictor_input_shape,
+                                                cfg, pf.prev_temporal_frame_infos,
+                                                pf.frame_info,
+                                                pf.next_temporal_frame_infos)
 
-                cv2_imwrite (pf.output_filepath,      final_img[...,0:3] )
-                cv2_imwrite (pf.output_mask_filepath, final_img[...,3:4] )
+                cv2_imwrite(pf.output_filepath, final_img[..., 0:3])
+                cv2_imwrite(pf.output_mask_filepath, final_img[..., 3:4])
 
                 if pf.need_return_image:
                     pf.image = final_img
 
             return pf
 
-        #overridable
-        def get_data_name (self, pf):
-            #return string identificator of your data
+        # overridable
+        def get_data_name(self, pf):
+            # return string identificator of your data
             return pf.frame_info.filepath
 
-
-
-
-    #override
-    def __init__(self, is_interactive, merger_session_filepath, predictor_func, predictor_input_shape, face_enhancer_func, xseg_256_extract_func, merger_config, frames, frames_root_path, output_path, output_mask_path, model_iter, subprocess_count=4):
-        if len (frames) == 0:
-            raise ValueError ("len (frames) == 0")
+    # override
+    def __init__(self, is_interactive, merger_session_filepath, predictor_func, predictor_input_shape,
+                 face_enhancer_func, xseg_256_extract_func, merger_config, frames, frames_root_path, output_path,
+                 output_mask_path, model_iter, subprocess_count=4):
+        if len(frames) == 0:
+            raise ValueError("len (frames) == 0")
 
         super().__init__('Merger', InteractiveMergerSubprocessor.Cli, io_loop_sleep_time=0.001)
 
@@ -166,9 +165,9 @@ class InteractiveMergerSubprocessor(Subprocessor):
         session_data = None
         if self.is_interactive and self.merger_session_filepath.exists():
             io.input_skip_pending()
-            if io.input_bool ("Use saved session?", True):
+            if io.input_bool("Use saved session?", True):
                 try:
-                    with open( str(self.merger_session_filepath), "rb") as f:
+                    with open(str(self.merger_session_filepath), "rb") as f:
                         session_data = pickle.loads(f.read())
 
                 except Exception as e:
@@ -176,7 +175,7 @@ class InteractiveMergerSubprocessor(Subprocessor):
 
         rewind_to_frame_idx = None
         self.frames = frames
-        self.frames_idxs = [ *range(len(self.frames)) ]
+        self.frames_idxs = [*range(len(self.frames))]
         self.frames_done_idxs = []
 
         if self.is_interactive and session_data is not None:
@@ -190,7 +189,7 @@ class InteractiveMergerSubprocessor(Subprocessor):
                            (s_frames_idxs is not None) and \
                            (s_frames_done_idxs is not None) and \
                            (s_model_iter is not None) and \
-                           (len(frames) == len(s_frames)) # frames count must match
+                           (len(frames) == len(s_frames))  # frames count must match
 
             if frames_equal:
                 for i in range(len(frames)):
@@ -203,13 +202,13 @@ class InteractiveMergerSubprocessor(Subprocessor):
                         break
 
             if frames_equal:
-                io.log_info ('Using saved session from ' + '/'.join (self.merger_session_filepath.parts[-2:]) )
+                io.log_info('Using saved session from ' + '/'.join(self.merger_session_filepath.parts[-2:]))
 
                 for frame in s_frames:
                     if frame.cfg is not None:
                         # recreate MergerConfig class using constructor with get_config() as dict params
                         # so if any new param will be added, old merger session will work properly
-                        frame.cfg = frame.cfg.__class__( **frame.cfg.get_config() )
+                        frame.cfg = frame.cfg.__class__(**frame.cfg.get_config())
 
                 self.frames = s_frames
                 self.frames_idxs = s_frames_idxs
@@ -232,31 +231,30 @@ class InteractiveMergerSubprocessor(Subprocessor):
                 session_data = None
 
         if session_data is None:
-            for filename in pathex.get_image_paths(self.output_path): #remove all images in output_path
+            for filename in pathex.get_image_paths(self.output_path):  # remove all images in output_path
                 Path(filename).unlink()
 
-            for filename in pathex.get_image_paths(self.output_mask_path): #remove all images in output_mask_path
+            for filename in pathex.get_image_paths(self.output_mask_path):  # remove all images in output_mask_path
                 Path(filename).unlink()
-
 
             frames[0].cfg = self.merger_config.copy()
 
-        for i in range( len(self.frames) ):
+        for i in range(len(self.frames)):
             frame = self.frames[i]
             frame.idx = i
-            frame.output_filepath      = self.output_path      / ( frame.frame_info.filepath.stem + '.png' )
-            frame.output_mask_filepath = self.output_mask_path / ( frame.frame_info.filepath.stem + '.png' )
+            frame.output_filepath = self.output_path / (frame.frame_info.filepath.stem + '.png')
+            frame.output_mask_filepath = self.output_mask_path / (frame.frame_info.filepath.stem + '.png')
 
             if not frame.output_filepath.exists() or \
-               not frame.output_mask_filepath.exists():
+                    not frame.output_mask_filepath.exists():
                 # if some frame does not exist, recompute and rewind
                 frame.is_done = False
                 frame.is_shown = False
 
                 if rewind_to_frame_idx is None:
-                    rewind_to_frame_idx = i-1
+                    rewind_to_frame_idx = i - 1
                 else:
-                    rewind_to_frame_idx = min(rewind_to_frame_idx, i-1)
+                    rewind_to_frame_idx = min(rewind_to_frame_idx, i - 1)
 
         if rewind_to_frame_idx is not None:
             while len(self.frames_done_idxs) > 0:
@@ -265,7 +263,8 @@ class InteractiveMergerSubprocessor(Subprocessor):
                     self.frames_idxs.insert(0, prev_frame.idx)
                 else:
                     break
-    #override
+
+    # override
     def process_info_generator(self):
         r = [0] if MERGER_DEBUG else range(self.process_count)
 
@@ -273,68 +272,71 @@ class InteractiveMergerSubprocessor(Subprocessor):
             yield 'CPU%d' % (i), {}, {'device_idx': i,
                                       'device_name': 'CPU%d' % (i),
                                       'predictor_func': self.predictor_func,
-                                      'predictor_input_shape' : self.predictor_input_shape,
+                                      'predictor_input_shape': self.predictor_input_shape,
                                       'face_enhancer_func': self.face_enhancer_func,
-                                      'xseg_256_extract_func' : self.xseg_256_extract_func,
+                                      'xseg_256_extract_func': self.xseg_256_extract_func,
                                       'stdin_fd': sys.stdin.fileno() if MERGER_DEBUG else None
                                       }
 
-    #overridable optional
+    # overridable optional
     def on_clients_initialized(self):
-        io.progress_bar ("Merging", len(self.frames_idxs)+len(self.frames_done_idxs), initial=len(self.frames_done_idxs) )
+        io.progress_bar("Merging", len(self.frames_idxs) + len(self.frames_done_idxs),
+                        initial=len(self.frames_done_idxs))
 
         self.process_remain_frames = not self.is_interactive
         self.is_interactive_quitting = not self.is_interactive
 
         if self.is_interactive:
             help_images = {
-                    MergerConfig.TYPE_MASKED :      cv2_imread ( str(Path(__file__).parent / 'gfx' / 'help_merger_masked.jpg') ),
-                    MergerConfig.TYPE_FACE_AVATAR : cv2_imread ( str(Path(__file__).parent / 'gfx' / 'help_merger_face_avatar.jpg') ),
-                }
+                MergerConfig.TYPE_MASKED: cv2_imread(str(Path(__file__).parent / 'gfx' / 'help_merger_masked.jpg')),
+                MergerConfig.TYPE_FACE_AVATAR: cv2_imread(
+                    str(Path(__file__).parent / 'gfx' / 'help_merger_face_avatar.jpg')),
+            }
 
             self.main_screen = Screen(initial_scale_to_width=1368, image=None, waiting_icon=True)
-            self.help_screen = Screen(initial_scale_to_height=768, image=help_images[self.merger_config.type], waiting_icon=False)
-            self.screen_manager = ScreenManager( "Merger", [self.main_screen, self.help_screen], capture_keys=True )
-            self.screen_manager.set_current (self.help_screen)
+            self.help_screen = Screen(initial_scale_to_height=768, image=help_images[self.merger_config.type],
+                                      waiting_icon=False)
+            self.screen_manager = ScreenManager("Merger", [self.main_screen, self.help_screen], capture_keys=True)
+            self.screen_manager.set_current(self.help_screen)
             self.screen_manager.show_current()
 
             self.masked_keys_funcs = {
-                    '`' : lambda cfg,shift_pressed: cfg.set_mode(0),
-                    '1' : lambda cfg,shift_pressed: cfg.set_mode(1),
-                    '2' : lambda cfg,shift_pressed: cfg.set_mode(2),
-                    '3' : lambda cfg,shift_pressed: cfg.set_mode(3),
-                    '4' : lambda cfg,shift_pressed: cfg.set_mode(4),
-                    '5' : lambda cfg,shift_pressed: cfg.set_mode(5),
-                    '6' : lambda cfg,shift_pressed: cfg.set_mode(6),
-                    'q' : lambda cfg,shift_pressed: cfg.add_hist_match_threshold(1 if not shift_pressed else 5),
-                    'a' : lambda cfg,shift_pressed: cfg.add_hist_match_threshold(-1 if not shift_pressed else -5),
-                    'w' : lambda cfg,shift_pressed: cfg.add_erode_mask_modifier(1 if not shift_pressed else 5),
-                    's' : lambda cfg,shift_pressed: cfg.add_erode_mask_modifier(-1 if not shift_pressed else -5),
-                    'e' : lambda cfg,shift_pressed: cfg.add_blur_mask_modifier(1 if not shift_pressed else 5),
-                    'd' : lambda cfg,shift_pressed: cfg.add_blur_mask_modifier(-1 if not shift_pressed else -5),
-                    'r' : lambda cfg,shift_pressed: cfg.add_motion_blur_power(1 if not shift_pressed else 5),
-                    'f' : lambda cfg,shift_pressed: cfg.add_motion_blur_power(-1 if not shift_pressed else -5),
-                    't' : lambda cfg,shift_pressed: cfg.add_super_resolution_power(1 if not shift_pressed else 5),
-                    'g' : lambda cfg,shift_pressed: cfg.add_super_resolution_power(-1 if not shift_pressed else -5),
-                    'y' : lambda cfg,shift_pressed: cfg.add_blursharpen_amount(1 if not shift_pressed else 5),
-                    'h' : lambda cfg,shift_pressed: cfg.add_blursharpen_amount(-1 if not shift_pressed else -5),
-                    'u' : lambda cfg,shift_pressed: cfg.add_output_face_scale(1 if not shift_pressed else 5),
-                    'j' : lambda cfg,shift_pressed: cfg.add_output_face_scale(-1 if not shift_pressed else -5),
-                    'i' : lambda cfg,shift_pressed: cfg.add_image_denoise_power(1 if not shift_pressed else 5),
-                    'k' : lambda cfg,shift_pressed: cfg.add_image_denoise_power(-1 if not shift_pressed else -5),
-                    'o' : lambda cfg,shift_pressed: cfg.add_bicubic_degrade_power(1 if not shift_pressed else 5),
-                    'l' : lambda cfg,shift_pressed: cfg.add_bicubic_degrade_power(-1 if not shift_pressed else -5),
-                    'p' : lambda cfg,shift_pressed: cfg.add_color_degrade_power(1 if not shift_pressed else 5),
-                    ';' : lambda cfg,shift_pressed: cfg.add_color_degrade_power(-1),
-                    ':' : lambda cfg,shift_pressed: cfg.add_color_degrade_power(-5),
-                    'z' : lambda cfg,shift_pressed: cfg.toggle_masked_hist_match(),
-                    'x' : lambda cfg,shift_pressed: cfg.toggle_mask_mode(),
-                    'c' : lambda cfg,shift_pressed: cfg.toggle_color_transfer_mode(),
-                    'n' : lambda cfg,shift_pressed: cfg.toggle_sharpen_mode(),
-                    }
+                '`': lambda cfg, shift_pressed: cfg.set_mode(0),
+                '1': lambda cfg, shift_pressed: cfg.set_mode(1),
+                '2': lambda cfg, shift_pressed: cfg.set_mode(2),
+                '3': lambda cfg, shift_pressed: cfg.set_mode(3),
+                '4': lambda cfg, shift_pressed: cfg.set_mode(4),
+                '5': lambda cfg, shift_pressed: cfg.set_mode(5),
+                '6': lambda cfg, shift_pressed: cfg.set_mode(6),
+                'q': lambda cfg, shift_pressed: cfg.add_hist_match_threshold(1 if not shift_pressed else 5),
+                'a': lambda cfg, shift_pressed: cfg.add_hist_match_threshold(-1 if not shift_pressed else -5),
+                'w': lambda cfg, shift_pressed: cfg.add_erode_mask_modifier(1 if not shift_pressed else 5),
+                's': lambda cfg, shift_pressed: cfg.add_erode_mask_modifier(-1 if not shift_pressed else -5),
+                'e': lambda cfg, shift_pressed: cfg.add_blur_mask_modifier(1 if not shift_pressed else 5),
+                'd': lambda cfg, shift_pressed: cfg.add_blur_mask_modifier(-1 if not shift_pressed else -5),
+                'r': lambda cfg, shift_pressed: cfg.add_motion_blur_power(1 if not shift_pressed else 5),
+                'f': lambda cfg, shift_pressed: cfg.add_motion_blur_power(-1 if not shift_pressed else -5),
+                't': lambda cfg, shift_pressed: cfg.add_super_resolution_power(1 if not shift_pressed else 5),
+                'g': lambda cfg, shift_pressed: cfg.add_super_resolution_power(-1 if not shift_pressed else -5),
+                'y': lambda cfg, shift_pressed: cfg.add_blursharpen_amount(1 if not shift_pressed else 5),
+                'h': lambda cfg, shift_pressed: cfg.add_blursharpen_amount(-1 if not shift_pressed else -5),
+                'u': lambda cfg, shift_pressed: cfg.add_output_face_scale(1 if not shift_pressed else 5),
+                'j': lambda cfg, shift_pressed: cfg.add_output_face_scale(-1 if not shift_pressed else -5),
+                'i': lambda cfg, shift_pressed: cfg.add_image_denoise_power(1 if not shift_pressed else 5),
+                'k': lambda cfg, shift_pressed: cfg.add_image_denoise_power(-1 if not shift_pressed else -5),
+                'o': lambda cfg, shift_pressed: cfg.add_bicubic_degrade_power(1 if not shift_pressed else 5),
+                'l': lambda cfg, shift_pressed: cfg.add_bicubic_degrade_power(-1 if not shift_pressed else -5),
+                'p': lambda cfg, shift_pressed: cfg.add_color_degrade_power(1 if not shift_pressed else 5),
+                ';': lambda cfg, shift_pressed: cfg.add_color_degrade_power(-1),
+                ':': lambda cfg, shift_pressed: cfg.add_color_degrade_power(-5),
+                'z': lambda cfg, shift_pressed: cfg.toggle_masked_hist_match(),
+                'x': lambda cfg, shift_pressed: cfg.toggle_mask_mode(),
+                'c': lambda cfg, shift_pressed: cfg.toggle_color_transfer_mode(),
+                'n': lambda cfg, shift_pressed: cfg.toggle_sharpen_mode(),
+            }
             self.masked_keys = list(self.masked_keys_funcs.keys())
 
-    #overridable optional
+    # overridable optional
     def on_clients_finalized(self):
         io.progress_bar_close()
 
@@ -350,13 +352,13 @@ class InteractiveMergerSubprocessor(Subprocessor):
                 'frames': self.frames,
                 'frames_idxs': self.frames_idxs,
                 'frames_done_idxs': self.frames_done_idxs,
-                'model_iter' : self.model_iter,
+                'model_iter': self.model_iter,
             }
-            self.merger_session_filepath.write_bytes( pickle.dumps(session_data) )
+            self.merger_session_filepath.write_bytes(pickle.dumps(session_data))
 
-            io.log_info ("Session is saved to " + '/'.join (self.merger_session_filepath.parts[-2:]) )
+            io.log_info("Session is saved to " + '/'.join(self.merger_session_filepath.parts[-2:]))
 
-    #override
+    # override
     def on_tick(self):
         io.process_messages()
 
@@ -376,10 +378,10 @@ class InteractiveMergerSubprocessor(Subprocessor):
         if self.is_interactive:
 
             screen_image = None if self.process_remain_frames else \
-                                   self.main_screen.get_image()
+                self.main_screen.get_image()
 
-            self.main_screen.set_waiting_icon( self.process_remain_frames or \
-                                               self.is_interactive_quitting )
+            self.main_screen.set_waiting_icon(self.process_remain_frames or \
+                                              self.is_interactive_quitting)
 
             if cur_frame is not None and not self.is_interactive_quitting:
 
@@ -387,8 +389,8 @@ class InteractiveMergerSubprocessor(Subprocessor):
                     if cur_frame.is_done:
                         if not cur_frame.is_shown:
                             if cur_frame.image is None:
-                                image      = cv2_imread (cur_frame.output_filepath, verbose=False)
-                                image_mask = cv2_imread (cur_frame.output_mask_filepath, verbose=False)
+                                image = cv2_imread(cur_frame.output_filepath, verbose=False)
+                                image_mask = cv2_imread(cur_frame.output_mask_filepath, verbose=False)
                                 if image is None or image_mask is None:
                                     # unable to read? recompute then
                                     cur_frame.is_done = False
@@ -398,7 +400,7 @@ class InteractiveMergerSubprocessor(Subprocessor):
                                     cur_frame.image = np.concatenate([image, image_mask], -1)
 
                             if cur_frame.is_done:
-                                io.log_info (cur_frame.cfg.to_string( cur_frame.frame_info.filepath.name) )
+                                io.log_info(cur_frame.cfg.to_string(cur_frame.frame_info.filepath.name))
                                 cur_frame.is_shown = True
                                 screen_image = cur_frame.image
                     else:
@@ -408,12 +410,13 @@ class InteractiveMergerSubprocessor(Subprocessor):
             self.screen_manager.show_current()
 
             key_events = self.screen_manager.get_key_events()
-            key, chr_key, ctrl_pressed, alt_pressed, shift_pressed = key_events[-1] if len(key_events) > 0 else (0,0,False,False,False)
+            key, chr_key, ctrl_pressed, alt_pressed, shift_pressed = key_events[-1] if len(key_events) > 0 else (
+            0, 0, False, False, False)
 
-            if key == 9: #tab
+            if key == 9:  # tab
                 self.screen_manager.switch_screens()
             else:
-                if key == 27: #esc
+                if key == 27:  # esc
                     self.is_interactive_quitting = True
                 elif self.screen_manager.get_current() is self.main_screen:
 
@@ -428,7 +431,7 @@ class InteractiveMergerSubprocessor(Subprocessor):
                                 self.masked_keys_funcs[chr_key](cfg, shift_pressed)
 
                             if prev_cfg != cfg:
-                                io.log_info ( cfg.to_string(cur_frame.frame_info.filepath.name) )
+                                io.log_info(cfg.to_string(cur_frame.frame_info.filepath.name))
                                 cur_frame.is_done = False
                                 cur_frame.is_shown = False
                     else:
@@ -503,28 +506,28 @@ class InteractiveMergerSubprocessor(Subprocessor):
                 f = self.frames
 
                 if len(self.frames_idxs) != 0:
-                    next_frame = f[ self.frames_idxs[0] ]
+                    next_frame = f[self.frames_idxs[0]]
                     next_frame.is_shown = False
 
                     if go_next_frame_overriding_cfg or go_last_frame_overriding_cfg:
 
                         if go_next_frame_overriding_cfg:
-                            to_frames = next_frame.idx+1
+                            to_frames = next_frame.idx + 1
                         else:
                             to_frames = len(f)
 
-                        for i in range( next_frame.idx, to_frames ):
+                        for i in range(next_frame.idx, to_frames):
                             f[i].cfg = None
 
-                    for i in range( min(len(self.frames_idxs), self.prefetch_frame_count) ):
-                        frame = f[ self.frames_idxs[i] ]
+                    for i in range(min(len(self.frames_idxs), self.prefetch_frame_count)):
+                        frame = f[self.frames_idxs[i]]
                         if frame.cfg is None:
                             if i == 0:
                                 frame.cfg = cur_frame.cfg.copy()
                             else:
-                                frame.cfg = f[ self.frames_idxs[i-1] ].cfg.copy()
+                                frame.cfg = f[self.frames_idxs[i - 1]].cfg.copy()
 
-                            frame.is_done = False #initiate solve again
+                            frame.is_done = False  # initiate solve again
                             frame.is_shown = False
 
             if len(self.frames_idxs) == 0:
@@ -533,42 +536,41 @@ class InteractiveMergerSubprocessor(Subprocessor):
         return (self.is_interactive and self.is_interactive_quitting) or \
                (not self.is_interactive and self.process_remain_frames == False)
 
-
-    #override
-    def on_data_return (self, host_dict, pf):
+    # override
+    def on_data_return(self, host_dict, pf):
         frame = self.frames[pf.idx]
         frame.is_done = False
         frame.is_processing = False
 
-    #override
-    def on_result (self, host_dict, pf_sent, pf_result):
+    # override
+    def on_result(self, host_dict, pf_sent, pf_result):
         frame = self.frames[pf_result.idx]
         frame.is_processing = False
         if frame.cfg == pf_result.cfg:
             frame.is_done = True
             frame.image = pf_result.image
 
-    #override
+    # override
     def get_data(self, host_dict):
         if self.is_interactive and self.is_interactive_quitting:
             return None
 
-        for i in range ( min(len(self.frames_idxs), self.prefetch_frame_count) ):
-            frame = self.frames[ self.frames_idxs[i] ]
+        for i in range(min(len(self.frames_idxs), self.prefetch_frame_count)):
+            frame = self.frames[self.frames_idxs[i]]
 
             if not frame.is_done and not frame.is_processing and frame.cfg is not None:
                 frame.is_processing = True
                 return InteractiveMergerSubprocessor.ProcessingFrame(idx=frame.idx,
-                                                           cfg=frame.cfg.copy(),
-                                                           prev_temporal_frame_infos=frame.prev_temporal_frame_infos,
-                                                           frame_info=frame.frame_info,
-                                                           next_temporal_frame_infos=frame.next_temporal_frame_infos,
-                                                           output_filepath=frame.output_filepath,
-                                                           output_mask_filepath=frame.output_mask_filepath,
-                                                           need_return_image=True )
+                                                                     cfg=frame.cfg.copy(),
+                                                                     prev_temporal_frame_infos=frame.prev_temporal_frame_infos,
+                                                                     frame_info=frame.frame_info,
+                                                                     next_temporal_frame_infos=frame.next_temporal_frame_infos,
+                                                                     output_filepath=frame.output_filepath,
+                                                                     output_mask_filepath=frame.output_mask_filepath,
+                                                                     need_return_image=True)
 
         return None
 
-    #override
+    # override
     def get_result(self):
         return 0

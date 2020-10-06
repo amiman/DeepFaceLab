@@ -213,6 +213,7 @@ FaceType_to_padding_remove_align = {
     FaceType.WHOLE_FACE: (0.40, False),
     FaceType.HEAD: (0.70, False),
     FaceType.HEAD_NO_ALIGN: (0.70, True),
+    FaceType.MOUTH: (0.0, False),
 }
 
 def convert_98_to_68(lmrks):
@@ -272,6 +273,7 @@ def transform_points(points, mat, invert=False):
     points = np.squeeze(points)
     return points
 
+
 def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
     if not isinstance(image_landmarks, np.ndarray):
         image_landmarks = np.array (image_landmarks)
@@ -321,6 +323,24 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         vvec_len = npla.norm(vvec)
         vvec /= vvec_len
         g_c += vvec*vvec_len*0.50
+
+    elif face_type == FaceType.MOUTH:
+
+        mat = umeyama(np.concatenate([image_landmarks[48:]]), mouth_center_landmarks_2D * 0.95, True)[0:2]
+
+        # get corner points in global space
+        g_p = transform_points(np.float32([(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)]), mat, True)
+        g_c = g_p[4]
+
+        # calc diagonal vectors between corners in global space
+        tb_diag_vec = (g_p[2] - g_p[0]).astype(np.float32)
+        tb_diag_vec /= npla.norm(tb_diag_vec)
+        bt_diag_vec = (g_p[1] - g_p[3]).astype(np.float32)
+        bt_diag_vec /= npla.norm(bt_diag_vec)
+
+        # calc modifier of diagonal vectors for scale and padding value
+        padding, remove_align = FaceType_to_padding_remove_align.get(face_type, 0.0)
+        mod = (1.0 / scale) * (npla.norm(g_p[0] - g_p[2]) * (padding * np.sqrt(2.0) + 0.5))
 
     # calc 3 points in global space to estimate 2d affine transform
     if not remove_align:
