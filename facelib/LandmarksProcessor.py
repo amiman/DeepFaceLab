@@ -125,6 +125,7 @@ mouth_center_landmarks_2D = np.array([
     [ 3.6601129e-01,  5.4228687e-01]   #67
 ], dtype=np.float32)
 
+
 # 68 point landmark definitions
 landmarks_68_pt = { "mouth": (48,68),
                     "right_eyebrow": (17, 22),
@@ -325,8 +326,10 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         g_c += vvec*vvec_len*0.50
 
     elif face_type == FaceType.MOUTH:
+        mouth_landmarks = mouth_center_landmarks_2D.copy()
+        # mouth_landmarks[:, 1] -= 0.15
 
-        mat = umeyama(np.concatenate([image_landmarks[48:]]), mouth_center_landmarks_2D * 0.95, True)[0:2]
+        mat = umeyama(np.concatenate([image_landmarks[48:]]), mouth_landmarks, True)[0:2]
 
         # get corner points in global space
         g_p = transform_points(np.float32([(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)]), mat, True)
@@ -341,6 +344,12 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         # calc modifier of diagonal vectors for scale and padding value
         padding, remove_align = FaceType_to_padding_remove_align.get(face_type, 0.0)
         mod = (1.0 / scale) * (npla.norm(g_p[0] - g_p[2]) * (padding * np.sqrt(2.0) + 0.5))
+
+        # adjust vertical offset
+        vvec = (g_p[0]-g_p[3]).astype(np.float32)
+        vvec_len = npla.norm(vvec)
+        vvec /= vvec_len
+        g_c -= vvec*vvec_len*0.1
 
     # calc 3 points in global space to estimate 2d affine transform
     if not remove_align:
@@ -358,13 +367,23 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         # get area of face square in global space
         area = mathlib.polygon_area(l_t[:,0], l_t[:,1] )
 
-        # calc side of square
-        side = np.float32(math.sqrt(area) / 2)
+        if face_type.MOUTH:
+            # calc side of square
+            side = np.float32(math.sqrt(area) / 2)
 
-        # calc 3 points with unrotated square
-        l_t = np.array( [ g_c + [-side,-side],
-                          g_c + [ side,-side],
-                          g_c + [ side, side] ] )
+            # calc 3 points with unrotated square
+            l_t = np.array([g_c + [-side, -side],
+                            g_c + [side, -side],
+                            g_c + [side, side]])
+
+        else:
+            # calc side of square
+            side = np.float32(math.sqrt(area) / 2)
+
+            # calc 3 points with unrotated square
+            l_t = np.array( [ g_c + [-side,-side],
+                              g_c + [ side,-side],
+                              g_c + [ side, side] ] )
 
     # calc affine transform from 3 global space points to 3 local space points size of 'output_size'
     pts2 = np.float32(( (0,0),(output_size,0),(output_size,output_size) ))
