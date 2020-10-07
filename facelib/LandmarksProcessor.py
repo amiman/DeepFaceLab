@@ -215,6 +215,7 @@ FaceType_to_padding_remove_align = {
     FaceType.HEAD: (0.70, False),
     FaceType.HEAD_NO_ALIGN: (0.70, True),
     FaceType.MOUTH: (0.0, False),
+    FaceType.MOUTH_NO_ALIGN: (0.0, True),
 }
 
 def convert_98_to_68(lmrks):

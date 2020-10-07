@@ -11,6 +11,7 @@ class FaceType(IntEnum):
     HEAD = 10
     HEAD_NO_ALIGN = 20
     MOUTH = 30
+    MOUTH_NO_ALIGN = 40
 
     MARK_ONLY = 100,  # no align at all, just embedded faceinfo
 
@@ -34,6 +35,7 @@ to_string_dict = {FaceType.HALF: 'half_face',
                   FaceType.HEAD: 'head',
                   FaceType.HEAD_NO_ALIGN: 'head_no_align',
                   FaceType.MOUTH: 'mouth',
+                  FaceType.MOUTH_NO_ALIGN: 'mouth_no_align',
                   FaceType.MARK_ONLY: 'mark_only',
                   }
 
