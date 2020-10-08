@@ -11,6 +11,9 @@ from core import mathlib
 from facelib import FaceType
 from core.mathlib.umeyama import umeyama
 
+from common import face
+
+
 landmarks_2D = np.array([
 [ 0.000213256,  0.106454  ], #17
 [ 0.0752622,    0.038915  ], #18
@@ -427,6 +430,12 @@ def expand_eyebrows(lmrks, eyebrows_expand_mod=1.0):
     return lmrks
 
 
+
+def get_mouth_mask(image_shape, image_landmarks):
+    mask_mouth = face.MaskMaker.make_face_mask_from_landmarks(image_landmarks[48:].astype(np.int),
+                                                                       image_shape)
+
+    return np.expand_dims(mask_mouth[:, :, 0], axis=2)
 
 
 def get_image_hull_mask (image_shape, image_landmarks, eyebrows_expand_mod=1.0 ):

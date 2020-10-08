@@ -130,8 +130,11 @@ class SampleProcessor(object):
                     if face_type is None:
                         raise ValueError("face_type must be defined for face samples")
 
-                    if sample_type == SPST.FACE_MASK: 
-                        if face_mask_type == SPFMT.FULL_FACE:
+                    if sample_type == SPST.FACE_MASK:
+                        if face_type == FaceType.MOUTH:
+                            img = LandmarksProcessor.get_mouth_mask(sample_bgr.shape, sample_landmarks)
+
+                        elif face_mask_type == SPFMT.FULL_FACE:
                             img = get_full_face_mask()
                         elif face_mask_type == SPFMT.EYES:
                             img = get_eyes_mask()
