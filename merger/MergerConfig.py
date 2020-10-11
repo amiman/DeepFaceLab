@@ -120,7 +120,7 @@ class MergerConfigMasked(MergerConfig):
 
         self.face_type = face_type
         if self.face_type not in [FaceType.HALF, FaceType.MID_FULL, FaceType.FULL, FaceType.WHOLE_FACE, FaceType.HEAD,
-                                  FaceType.MOUTH ]:
+                                  FaceType.MOUTH, FaceType.JAW ]:
             raise ValueError("MergerConfigMasked does not support this type of face.")
 
         self.default_mode = default_mode

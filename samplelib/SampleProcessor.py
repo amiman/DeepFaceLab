@@ -133,7 +133,8 @@ class SampleProcessor(object):
                     if sample_type == SPST.FACE_MASK:
                         if face_type == FaceType.MOUTH:
                             img = LandmarksProcessor.get_mouth_mask(sample_bgr.shape, sample_landmarks)
-
+                        elif face_type == FaceType.JAW:
+                            img = LandmarksProcessor.get_jaw_mask(sample_bgr.shape, sample_landmarks)
                         elif face_mask_type == SPFMT.FULL_FACE:
                             img = get_full_face_mask()
                         elif face_mask_type == SPFMT.EYES:

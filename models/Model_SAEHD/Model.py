@@ -211,7 +211,8 @@ class SAEHDModel(ModelBase):
                           'f': FaceType.FULL,
                           'wf': FaceType.WHOLE_FACE,
                           'head': FaceType.HEAD,
-                          'mouth': FaceType.MOUTH}[self.options['face_type']]
+                          'mouth': FaceType.MOUTH,
+                          'jaw': FaceType.JAW}[self.options['face_type']]
 
         eyes_prio = self.options['eyes_prio']
 

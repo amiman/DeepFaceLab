@@ -815,7 +815,8 @@ def main(detector=None,
         face_type = {'f': FaceType.FULL,
                      'wf': FaceType.WHOLE_FACE,
                      'head': FaceType.HEAD,
-                     'mouth': FaceType.MOUTH}[face_type]
+                     'mouth': FaceType.MOUTH,
+                     'jaw': FaceType.JAW}[face_type]
 
     if max_faces_from_image is None:
         max_faces_from_image = io.input_int(f"Max number of faces from image", 0,

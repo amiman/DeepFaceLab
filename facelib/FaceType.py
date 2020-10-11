@@ -13,6 +13,9 @@ class FaceType(IntEnum):
     MOUTH = 30
     MOUTH_NO_ALIGN = 40
 
+    JAW = 50
+    JAW_NO_ALIGN = 60
+
     MARK_ONLY = 100,  # no align at all, just embedded faceinfo
 
     @staticmethod
@@ -36,6 +39,8 @@ to_string_dict = {FaceType.HALF: 'half_face',
                   FaceType.HEAD_NO_ALIGN: 'head_no_align',
                   FaceType.MOUTH: 'mouth',
                   FaceType.MOUTH_NO_ALIGN: 'mouth_no_align',
+                  FaceType.JAW: 'jaw',
+                  FaceType.JAW_NO_ALIGN: 'jaw_no_align',
                   FaceType.MARK_ONLY: 'mark_only',
                   }
 

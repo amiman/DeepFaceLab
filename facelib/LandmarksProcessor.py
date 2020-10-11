@@ -219,6 +219,8 @@ FaceType_to_padding_remove_align = {
     FaceType.HEAD_NO_ALIGN: (0.70, True),
     FaceType.MOUTH: (0.0, False),
     FaceType.MOUTH_NO_ALIGN: (0.0, True),
+    FaceType.JAW: (0.0, False),
+    FaceType.JAW_NO_ALIGN: (0.0, True),
 }
 
 def convert_98_to_68(lmrks):
@@ -331,7 +333,6 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
 
     elif face_type == FaceType.MOUTH:
         mouth_landmarks = mouth_center_landmarks_2D.copy()
-        # mouth_landmarks[:, 1] -= 0.15
 
         mat = umeyama(np.concatenate([image_landmarks[48:]]), mouth_landmarks, True)[0:2]
 
@@ -354,6 +355,30 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         vvec_len = npla.norm(vvec)
         vvec /= vvec_len
         g_c -= vvec*vvec_len*0.1
+
+    elif face_type == FaceType.JAW:
+        mouth_landmarks = mouth_center_landmarks_2D.copy()
+
+        mat = umeyama(np.concatenate([image_landmarks[48:]]), mouth_landmarks, True)[0:2]
+
+        # get corner points in global space
+        g_p = transform_points(np.float32([(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)]), mat, True)
+        g_c = g_p[4]
+
+        # calc diagonal vectors between corners in global space
+        tb_diag_vec = (g_p[2] - g_p[0]).astype(np.float32)
+        tb_diag_vec /= npla.norm(tb_diag_vec)
+        bt_diag_vec = (g_p[1] - g_p[3]).astype(np.float32)
+        bt_diag_vec /= npla.norm(bt_diag_vec)
+
+        # calc modifier of diagonal vectors for scale and padding value
+        padding, remove_align = FaceType_to_padding_remove_align.get(face_type, 0.0)
+        mod = (1.0 / scale) * (npla.norm(g_p[0] - g_p[2]) * (padding * np.sqrt(2.0) + 0.5))
+
+        # adjust vertical offset
+        vvec = (g_p[0]-g_p[3]).astype(np.float32)
+        vvec_len = npla.norm(vvec)
+        vvec /= vvec_len
 
     # calc 3 points in global space to estimate 2d affine transform
     if not remove_align:
@@ -436,6 +461,14 @@ def get_mouth_mask(image_shape, image_landmarks):
                                                                        image_shape)
 
     return np.expand_dims(mask_mouth[:, :, 0], axis=2)
+
+
+def get_jaw_mask(image_shape, image_landmarks):
+
+    jaw_landmarks = np.concatenate([image_landmarks[3:13], image_landmarks[48:]], axis=0)
+    jaw_mask = face.MaskMaker.make_face_mask_from_landmarks(jaw_landmarks.astype(np.int), image_shape)
+
+    return np.expand_dims(jaw_mask[:, :, 0], axis=2)
 
 
 def get_image_hull_mask (image_shape, image_landmarks, eyebrows_expand_mod=1.0 ):
