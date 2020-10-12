@@ -357,9 +357,21 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         g_c -= vvec*vvec_len*0.1
 
     elif face_type == FaceType.JAW:
-        mouth_landmarks = mouth_center_landmarks_2D.copy()
 
-        mat = umeyama(np.concatenate([image_landmarks[48:]]), mouth_landmarks, True)[0:2]
+        # Avg face
+        avg_face_lmrks = (face.get_avg_face_lmrks(include_border=False)[:68] + 1) / 2
+
+        # jaw
+        avg_jaw_landmarks = np.concatenate([avg_face_lmrks[3:14], avg_face_lmrks[48:]], axis=0)
+        avg_jaw_landmarks[:, 0] -= np.min(avg_jaw_landmarks[:, 0])
+        avg_jaw_landmarks[:, 1] -= np.min(avg_jaw_landmarks[:, 1])
+        avg_jaw_landmarks[:, 0] /= np.max(avg_jaw_landmarks[:, 0])
+        avg_jaw_landmarks[:, 1] /= np.max(avg_jaw_landmarks[:, 1])
+
+        image_jaw_landmarks = np.concatenate([image_landmarks[3:14], image_landmarks[48:]], axis=0)
+
+        # Trasform global to local
+        mat = umeyama(image_jaw_landmarks, avg_jaw_landmarks, True)[0:2]
 
         # get corner points in global space
         g_p = transform_points(np.float32([(0, 0), (1, 0), (1, 1), (0, 1), (0.5, 0.5)]), mat, True)
@@ -375,10 +387,10 @@ def get_transform_mat (image_landmarks, output_size, face_type, scale=1.0):
         padding, remove_align = FaceType_to_padding_remove_align.get(face_type, 0.0)
         mod = (1.0 / scale) * (npla.norm(g_p[0] - g_p[2]) * (padding * np.sqrt(2.0) + 0.5))
 
-        # adjust vertical offset
-        vvec = (g_p[0]-g_p[3]).astype(np.float32)
-        vvec_len = npla.norm(vvec)
-        vvec /= vvec_len
+        # # adjust vertical offset
+        # vvec = (g_p[0]-g_p[3]).astype(np.float32)
+        # vvec_len = npla.norm(vvec)
+        # vvec /= vvec_len
 
     # calc 3 points in global space to estimate 2d affine transform
     if not remove_align:
@@ -597,6 +609,7 @@ def get_cmask (image_shape, lmrks, eyebrows_expand_mod=1.0):
                           ('up_nose', ((up_nose, False),) ),
                           ('down_nose', ((down_nose, False),) ),
                           ('mouth', ((mouth, True),) ),
+                          ('jaw', ((mouth, True),)),
                          )
                         )
 
@@ -612,6 +625,9 @@ def get_cmask (image_shape, lmrks, eyebrows_expand_mod=1.0):
     mouth_fall_dist = w // 32
     mouth_thickness = max( w // 64, 1 )
 
+    jaw_fall_dist = w // 32
+    jaw_thickness = max( w // 64, 1 )
+
     eyes_mask = gdf('eyes',eyes_thickness)
     eyes_mask = 1-np.clip( eyes_mask/ eyes_fall_dist, 0, 1)
     #eyes_mask = np.clip ( 1- ( np.sqrt( np.maximum(eyes_mask,0) ) / eyes_fall_dist ), 0, 1)
@@ -623,6 +639,9 @@ def get_cmask (image_shape, lmrks, eyebrows_expand_mod=1.0):
 
     mouth_mask = gdf('mouth', mouth_thickness)
     mouth_mask = 1-np.clip( mouth_mask / mouth_fall_dist, 0, 1)
+
+    jaw_mask = gdf('jaw', jaw_thickness)
+    jaw_mask = 1 - np.clip(jaw_mask / jaw_fall_dist, 0, 1)
     #mouth_mask = np.clip ( 1- ( np.sqrt( np.maximum(mouth_mask,0) ) / mouth_fall_dist ), 0, 1)
 
     def blend(a,b,k):

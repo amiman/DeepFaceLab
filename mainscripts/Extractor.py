@@ -806,8 +806,8 @@ def main(detector=None,
         if not cpu_only else nn.DeviceConfig.CPU()
 
     if face_type is None:
-        face_type = io.input_str("Face type", 'wf', ['f', 'wf', 'head'], 'mouth',
-                                 help_message="Full face / whole face / head/ mouth. "
+        face_type = io.input_str("Face type", 'wf', ['f', 'wf', 'head'], 'mouth', 'jaw',
+                                 help_message="Full face / whole face / head / mouth / jaw. "
                                               "'Whole face' covers full area of face include forehead. "
                                               "'head' covers full head, "
                                               "but requires XSeg for src and dst faceset.").lower()

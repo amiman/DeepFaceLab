@@ -75,7 +75,7 @@ class SAEHDModel(ModelBase):
             resolution = np.clip((resolution // 16) * 16, min_res, max_res)
             self.options['resolution'] = resolution
             self.options['face_type'] = io.input_str("Face type", default_face_type, ['h', 'mf', 'f', 'wf', 'head',
-                                                                                      'mouth'],
+                                                                                      'mouth', 'jaw'],
                                                      help_message="Half / mid face / full face / whole face / head/ mouth. Half face has better resolution, but covers less area of cheeks. Mid face is 30% wider than half face. 'Whole face' covers full area of face include forehead. 'head' covers full head, but requires XSeg for src and dst faceset.").lower()
 
             while True:
